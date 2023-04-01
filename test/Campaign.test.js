@@ -16,22 +16,19 @@ beforeEach(async () => {
   accounts = await web3.eth.getAccounts();
 
   // deploy the contract
-  factory = await new web3.eth.Contract(JSON.parse(compiledFactory.interface))
-    .deploy({ data: compiledFactory.bytecode })
-    .send({ from: accounts[0], gas: "1000000" });
+  factory = await new web3.eth.Contract(compiledFactory.abi)
+    .deploy({ data: compiledFactory.evm.bytecode.object })
+    .send({ from: accounts[0], gas: "1400000" });
 
   await factory.methods
     .createCampaign("100")
-    .send({ from: accounts[0], gas: "1000000" });
+    .send({ from: accounts[0], gas: "1400000" });
 
   // get the first element of array and assign to the campaignAddress variable
   // this destructuring method wont replace the entire array, but will insert a single element
   [campaignAddress] = await factory.methods.getDeployedCampaigns().call();
   // deploy the campaign
-  campaign = await new web3.eth.Contract(
-    JSON.parse(compiledCampaign.interface),
-    campaignAddress
-  );
+  campaign = await new web3.eth.Contract(compiledCampaign.abi, campaignAddress);
 });
 
 describe("Campaigns", () => {
@@ -80,7 +77,7 @@ describe("Campaigns", () => {
       .createRequest("Buy batteries", "100", accounts[1])
       .send({
         from: accounts[0],
-        gas: "1000000",
+        gas: "1400000",
       });
     const request = await campaign.methods.requests(0).call();
 
@@ -88,5 +85,43 @@ describe("Campaigns", () => {
     assert.equal("Buy batteries", request.description);
     // or you can do with another
     assert.equal("100", request.value);
+  });
+
+  it("processes requests", async () => {
+    // create minimum 1 contribution
+    await campaign.methods.contribute().send({
+      from: accounts[0],
+      value: web3.utils.toWei("10", "ether"),
+    });
+
+    // creator of the campaign create a request
+    await campaign.methods
+      .createRequest("A", web3.utils.toWei("5", "ether"), accounts[1])
+      .send({
+        from: accounts[0],
+        gas: "1400000",
+      });
+
+    // contributor approve the request
+    await campaign.methods.approveRequest(0).send({
+      from: accounts[0],
+      gas: "1400000",
+    });
+
+    // creator of the campaign finalize the request that has been approved
+    await campaign.methods.finalizeRequest(0).send({
+      from: accounts[0],
+      gas: "1400000",
+    });
+
+    // get the balance from account 1 as the creator
+    let balance = await web3.eth.getBalance(accounts[1]);
+    // change the balance into ether
+    balance = web3.utils.fromWei(balance, "ether");
+    // turn into decimal to make comparison possible
+    balance = parseFloat(balance);
+
+    console.log(balance);
+    assert(balance > 104);
   });
 });
