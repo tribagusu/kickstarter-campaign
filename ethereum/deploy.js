@@ -11,7 +11,7 @@ const web3 = new Web3(provider);
 
 const deploy = async () => {
   try {
-    const accounts = await web3?.eth?.getAccounts();
+    const accounts = await web3.eth.getAccounts();
 
     console.log("Attempting to deploy from account", accounts[0]);
 
